@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Soul Skeleton Scanner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+  <!-- Mediapipe -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Poppins", system-ui, sans-serif;
+      min-height: 100vh;
+      background: radial-gradient(circle at top, #1a1a1a 0, #050505 45%, #000000 100%);
+      color: #f5f5f5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .app {
+      max-width: 1000px;
+      width: 100%;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    header h1 {
+      font-size: 1.8rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    header p {
+      margin-top: 6px;
+      font-size: 0.9rem;
+      color: #b5b5b5;
+    }
+
+    .mode-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      margin-top: 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.2);
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #c77dff;
+      background: rgba(199,125,255,0.1);
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #c77dff;
+      box-shadow: 0 0 8px #c77dff;
+    }
+
+    .panel {
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.03);
+      box-shadow: 0 18px 45px rgba(0,0,0,0.8);
+      backdrop-filter: blur(16px);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    @media (min-width: 800px) {
+      .panel {
+        flex-direction: row;
+      }
+    }
+
+    .left, .right { flex: 1; }
+
+    .left {
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding-bottom: 14px;
+    }
+
+    @media (min-width: 800px) {
+      .left {
+        border-bottom: none;
+        border-right: 1px solid rgba(255,255,255,0.1);
+        padding-right: 14px;
+      }
+    }
+
+    .field {
+      text-align: left;
+      margin-bottom: 10px;
+    }
+
+    .label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #a0a0a0;
+      margin-bottom: 4px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.3);
+      background: rgba(0,0,0,0.7);
+      color: #f5f5f5;
+      outline: none;
+      font-size: 0.9rem;
+    }
+
+    input::placeholder { color: #777; }
+
+    input:focus, select:focus {
+      border-color: #c77dff;
+      box-shadow: 0 0 0 1px rgba(199,125,255,0.4);
+    }
+
+    #startBtn {
+      width: 100%;
+      margin-top: 4px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: none;
+      background: linear-gradient(135deg, #c77dff, #61dafb);
+      color: #050505;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    .hint {
+      margin-top: 6px;
+      font-size: 0.75rem;
+      color: #9a9a9a;
+    }
+
+    .right {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #status {
+      font-size: 0.8rem;
+      color: #c5c5c5;
+      text-align: center;
+      min-height: 2em;
+    }
+
+    .viewer {
+      width: 100%;
+      max-width: 420px;
+      border-radius: 16px;
+      padding: 10px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: radial-gradient(circle at top, #111 0, #000 55%);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.9);
+    }
+
+    #canvas {
+      width: 100%;
+      border-radius: 12px;
+      background: #000;
+      display: block;
+    }
+
+    .caption {
+      margin-top: 4px;
+      font-size: 0.78rem;
+      color: #a9a9a9;
+      text-align: center;
+      min-height: 1.6em;
+    }
+
+    footer {
+      margin-top: 12px;
+      font-size: 0.75rem;
+      color: #666;
+      text-align: center;
+    }
+
+    /* скрываем камеру — она только для MediaPipe */
+    #video {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Soul Skeleton Scanner</h1>
+      <p>Move in front of the camera and see only your skeleton on a black void.</p>
+      <div class="mode-pill">
+        <span class="dot"></span>
+        SOUL MODE · LIVE
+      </div>
+    </header>
+
+    <div class="panel">
+      <div class="left">
+        <div class="field">
+          <div class="label">Name</div>
+          <input id="name" placeholder="Type your name" />
+        </div>
+
+        <div class="field">
+          <div class="label">Gender</div>
+          <select id="gender">
+            <option value="female">Female</option>
+            <option value="male">Male</option>
+            <option value="other">Other / Secret</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <div class="label">Age</div>
+          <input id="age" type="number" min="1" max="120" placeholder="Age in years" />
+        </div>
+
+        <button id="startBtn">Start soul scan</button>
+        <p class="hint">
+          Your real image is hidden. We only use the camera to track your pose and draw an abstract skeleton.
+        </p>
+      </div>
+
+      <div class="right">
+        <p id="status">Press “Start soul scan” and allow camera access.</p>
+        <div class="viewer">
+          <canvas id="canvas" width="640" height="480"></canvas>
+        </div>
+        <p class="caption" id="caption">No soul skeleton yet.</p>
+      </div>
+    </div>
+
+    <footer>Concept prototype · not a medical X-ray.</footer>
+  </div>
+
+  <!-- скрытое видео для Mediapipe -->
+  <video id="video" playsinline></video>
+
+  <script>
+    const videoEl = document.getElementById("video");
+    const canvasEl = document.getElementById("canvas");
+    const ctx = canvasEl.getContext("2d");
+    const statusEl = document.getElementById("status");
+    const startBtn = document.getElementById("startBtn");
+    const captionEl = document.getElementById("caption");
+
+    let pose = null;
+    let camera = null;
+    let userName = "";
+    let gender = "female";
+    let ageText = "";
+
+    startBtn.addEventListener("click", () => {
+      userName = (document.getElementById("name").value || "Unknown soul").trim();
+      gender = document.getElementById("gender").value;
+      const ageVal = document.getElementById("age").value;
+      ageText = ageVal ? `${ageVal} y/o` : "age unknown";
+
+      captionEl.textContent = `${userName} · ${ageText} · ${gender} · live skeleton mode`;
+
+      startBtn.disabled = true;
+      startBtn.textContent = "Starting...";
+      startBtn.style.opacity = 0.6;
+      statusEl.textContent = "Requesting camera...";
+
+      startPose();
+    });
+
+    function startPose() {
+      pose = new Pose({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+      });
+
+      pose.setOptions({
+        modelComplexity: 1,
+        smoothLandmarks: true,
+        enableSegmentation: false,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+      });
+
+      pose.onResults(onResults);
+
+      camera = new Camera(videoEl, {
+        onFrame: async () => {
+          await pose.send({ image: videoEl });
+        },
+        width: 640,
+        height: 480
+      });
+
+      camera.start().then(() => {
+        statusEl.textContent = "Camera started. Step back a bit so your upper body is visible.";
+        startBtn.textContent = "Running";
+      }).catch(err => {
+        console.error(err);
+        statusEl.textContent = "Camera error: " + err;
+        startBtn.textContent = "Error";
+      });
+    }
+
+    function onResults(results) {
+      const w = canvasEl.width;
+      const h = canvasEl.height;
+
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = "black";
+      ctx.fillRect(0, 0, w, h);
+
+      // Если поза не найдена — текст подсказка
+      if (!results.poseLandmarks) {
+        ctx.fillStyle = "rgba(255,255,255,0.6)";
+        ctx.font = "16px Poppins";
+        ctx.textAlign = "center";
+        ctx.fillText("Step into the frame", w / 2, h / 2);
+        return;
+      }
+
+      const lm = results.poseLandmarks;
+
+      // Скелет (как в рабочем минимальном примере)
+      ctx.strokeStyle = "#00eaff";
+      ctx.lineWidth = 4;
+      ctx.lineCap = "round";
+      ctx.fillStyle = "#00eaff";
+
+      function connect(a, b) {
+        const p1 = lm[a];
+        const p2 = lm[b];
+        if (!p1 || !p2) return;
+        ctx.beginPath();
+        ctx.moveTo(p1.x * w, p1.y * h);
+        ctx.lineTo(p2.x * w, p2.y * h);
+        ctx.stroke();
+      }
+
+      // туловище
+      connect(11, 12);
+      connect(11, 23);
+      connect(12, 24);
+      connect(23, 24);
+
+      // руки
+      connect(11, 13);
+      connect(13, 15);
+      connect(12, 14);
+      connect(14, 16);
+
+      // ноги
+      connect(23, 25);
+      connect(25, 27);
+      connect(24, 26);
+      connect(26, 28);
+
+      // суставы
+      const joints = [11,12,13,14,15,16,23,24,25,26,27,28];
+      joints.forEach(i => {
+        const p = lm[i];
+        if (!p) return;
+        ctx.beginPath();
+        ctx.arc(p.x * w, p.y * h, 5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      statusEl.textContent = "Skeleton active. Move and watch the lines follow your body.";
+    }
+  </script>
+</body>
+</html>
